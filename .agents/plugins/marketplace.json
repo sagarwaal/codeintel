@@ -1,0 +1,20 @@
+{
+  "name": "codeintel",
+  "interface": {
+    "displayName": "CodeIntel"
+  },
+  "plugins": [
+    {
+      "name": "codeintel",
+      "source": {
+        "source": "url",
+        "url": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

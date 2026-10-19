@@ -1,0 +1,37 @@
+{
+  "name": "codeintel",
+  "version": "1.0.0",
+  "description": "Deep repository analysis that maintains a local, Git-ignored knowledge base for architecture, debugging, test gaps, change impact, and safe feature work.",
+  "author": {
+    "name": "Sagar Agarwal",
+    "url": "https://github.com/sagarwaal"
+  },
+  "homepage": "https://github.com/sagarwaal/codeintel",
+  "repository": "https://github.com/sagarwaal/codeintel",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "architecture",
+    "code-review",
+    "testing",
+    "onboarding",
+    "debugging"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CodeIntel",
+    "shortDescription": "Understand any repository deeply and keep that knowledge locally",
+    "longDescription": "Builds and incrementally maintains an evidence-based .codeintel/ knowledge base covering architecture, components, dependencies, test gaps, findings, and feature-implementation guidance, so future sessions don't rediscover the codebase.",
+    "developerName": "Sagar Agarwal",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Analyze this repository deeply with CodeIntel.",
+      "Refresh the project knowledge for my current changes."
+    ],
+    "websiteURL": "https://github.com/sagarwaal/codeintel"
+  }
+}
