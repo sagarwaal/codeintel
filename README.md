@@ -110,10 +110,10 @@ gemini extensions install https://github.com/sagarwaal/codeintel
 gemini extensions update codeintel   # later
 ```
 
-### Any agent that supports Agent Skills
+### Any agent that supports Agent Skills (skills.sh)
 
 ```bash
-npx skills add sagarwaal/codeintel
+npx skills add sagarwaal/codeintel@codeintel
 ```
 
 ### Manual
