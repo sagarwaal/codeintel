@@ -112,17 +112,28 @@ Do not merely summarize the Git diff into Markdown. For every affected engineeri
 - Remove or update links and `depends_on` entries pointing to deleted or renamed files.
 - Never claim a test or verification command passed unless it was actually executed in the current session.
 
-## Step 5 — Atomic Checkpoint & Working-Tree Invariants
+## Step 5 — Transactional Staging, Lock & Atomic Checkpoint Invariants
 
-1. **Never advance on failure or partial completion**
-   - Stage updates in `.codeintel/manifests/analysis_state.json.tmp` and validate JSON syntax, schema version, required fields, and artifact path existence before replacing `analysis_state.json`.
-   - If any required revalidation stage fails or is interrupted, **preserve the previous `repository.analyzed_commit`**, set `analysis.status` to `"partial"`, mark unrefreshed impacted artifacts as `"stale"`, and list remaining work in `analysis.unresolved_items`.
+Separate three distinct properties during every refresh:
+- **Structural validity:** JSON and Markdown artifacts conform to schema and path/link requirements.
+- **Freshness:** Supporting source files (`depends_on`, `evidence[].path`, `evidence_hash`) have not drifted since verification.
+- **Semantic verification:** Substantive engineering claims have been checked against the current source implementation. Mechanical formatting or schema checks alone must never promote a `stale` or `unverified` claim to `verified`.
 
-2. **Working-tree dirtiness accounting**
+1. **Transactional artifact staging & repository-local lock**
+   - Acquire a repository-local lock (`.codeintel/manifests/.refresh.lock`) so concurrent refreshes cannot overwrite each other.
+   - Stage all modified Markdown documents in `.codeintel/manifests/.staging/artifacts/` and stage the updated manifest in `.codeintel/manifests/.staging/analysis_state.json`.
+   - Validate all staged artifacts and manifest invariants before promoting any file to `.codeintel/`.
+   - If any required stage fails or is interrupted, **roll back `.staging/` so zero live Markdown files in `.codeintel/` are left partially mutated**, preserve the previous `repository.analyzed_commit`, and set `analysis.status` to `"partial"` or `"failed"` with details in `analysis.unresolved_items`.
+
+2. **Safe deletion and rename handling**
+   - Treating a deleted file by blindly stripping every Markdown line containing its path destroys historical context. Preserve `## User Notes`, `## Historical Notes`, and `## History` sections verbatim, remove or revise only active catalog/index/dependency entries once verified, and mark claims whose sole evidence was deleted as `contradicted`.
+   - Treat renames (`R old new`) as continuity updates for `depends_on` and paths while marking affected behavioral claims for revalidation.
+
+3. **Working-tree dirtiness accounting**
    - An unchanged `HEAD` commit does not mean the repository is unchanged.
-   - Record `repository.working_tree_clean` (`true`/`false`) and `repository.includes_uncommitted_changes` (`true`/`false`).
+   - Record `repository.working_tree_clean` (`true`/`false`), `repository.includes_uncommitted_changes` (`true`/`false`), and claim-level `evidence_hash` fingerprints.
    - Only advance `repository.analyzed_commit` to `HEAD` when all committed changes up to `HEAD` within the full repository scope have been revalidated.
-   - If uncommitted changes exist and were analyzed, set `repository.includes_uncommitted_changes: true` and note that the knowledge state reflects `HEAD` plus dirty working-tree modifications (not a clean `HEAD` snapshot). If uncommitted changes exist and were excluded, do not mark the affected artifacts `"current"` against the working tree.
 
-3. **History log**
+4. **Efficiency metrics & history log**
+   - Record `analysis.last_refresh_metrics` (`artifacts_considered`, `artifacts_refreshed`, `claims_revalidated`, `full_analysis_required`, `reused_existing_knowledge`, `duration_ms`).
    - Append a concise summary under `.codeintel/history/` when meaningful architectural claims, contracts, or findings change.

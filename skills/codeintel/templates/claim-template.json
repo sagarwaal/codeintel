@@ -13,5 +13,6 @@
   "depends_on": [
     "src/app.ts"
   ],
-  "last_verified_commit": "abc123"
+  "last_verified_commit": "abc123",
+  "evidence_hash": "sha256:e3b0c44298fc1c14"
 }

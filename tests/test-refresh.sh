@@ -451,7 +451,203 @@ EOF
 if bash "$REFRESH_SH" validate-agent-result "$BAD_AGENT_RESULT" 2>/dev/null; then
   fail "Test 11: expected validate-agent-result to reject unknown agent role and scope" "exited 0"
 fi
-pass "11/11 Shared evidence & subagent schema: validated claim/agent-result templates and rejected malformed payloads"
+pass "11/16 Shared evidence & subagent schema: validated claim/agent-result templates and rejected malformed payloads"
+
+# ------------------------------------------------------------------------------
+# Semantic Regression Suite (5 targeted correctness & staging boundaries)
+# ------------------------------------------------------------------------------
+REPO_SEM="$TMP_WORKSPACE/repo_sem"
+mkdir -p "$REPO_SEM/src/payments" "$REPO_SEM/src/utils" "$REPO_SEM/.codeintel/manifests" "$REPO_SEM/.codeintel/components"
+git -C "$REPO_SEM" init -b main -q
+git -C "$REPO_SEM" config user.name "Test User"
+git -C "$REPO_SEM" config user.email "test@example.com"
+
+cat > "$REPO_SEM/src/payments/retry.py" <<'EOF'
+def retry_count():
+    return 3
+EOF
+
+cat > "$REPO_SEM/src/payments/legacy_gateway.py" <<'EOF'
+def use_legacy_gateway():
+    return True
+EOF
+
+cat > "$REPO_SEM/src/utils/format.py" <<'EOF'
+def fmt_currency(val):
+    return f"${val}"
+EOF
+
+git -C "$REPO_SEM" add .
+git -C "$REPO_SEM" commit -q -m "init semantic fixture"
+sem_sha="$(git -C "$REPO_SEM" rev-parse HEAD)"
+
+cat > "$REPO_SEM/.codeintel/INDEX.md" <<'EOF'
+# Index
+- `src/payments/retry.py`: Retry policy
+- `src/payments/legacy_gateway.py`: Legacy gateway
+EOF
+
+cat > "$REPO_SEM/.codeintel/COMPONENT_CATALOG.md" <<'EOF'
+# Catalog
+- `src/payments/retry.py`: Payment retry logic
+- `src/payments/legacy_gateway.py`: Old gateway module
+- `src/utils/format.py`: Formatting helper
+
+## Historical Notes
+In v0, `src/payments/legacy_gateway.py` handled synchronous XML calls before the REST migration.
+EOF
+
+cat > "$REPO_SEM/.codeintel/ARCHITECTURE.md" <<'EOF'
+# Architecture
+Core payment flow uses `src/payments/retry.py`.
+EOF
+
+cat > "$REPO_SEM/.codeintel/components/payment.md" <<'EOF'
+# Payment Component
+The retry policy in `retry_count` allows three attempts.
+EOF
+
+cat > "$REPO_SEM/.codeintel/components/utils.md" <<'EOF'
+# Utils Component
+Currency formatting in `src/utils/format.py`.
+EOF
+
+cat > "$REPO_SEM/.codeintel/manifests/analysis_state.json" <<EOF
+{
+  "schema_version": 2,
+  "repository": {
+    "root": ".",
+    "branch": "main",
+    "head_commit": "$sem_sha",
+    "analyzed_commit": "$sem_sha",
+    "working_tree_clean": true,
+    "includes_uncommitted_changes": false
+  },
+  "analysis": {
+    "status": "complete",
+    "scope": "full",
+    "last_successful_refresh": "2026-10-20T00:00:00Z",
+    "unresolved_items": []
+  },
+  "artifacts": {
+    "INDEX.md": {
+      "depends_on": ["src/payments/retry.py", "src/payments/legacy_gateway.py"],
+      "status": "current"
+    },
+    "COMPONENT_CATALOG.md": {
+      "depends_on": ["src/payments/retry.py", "src/payments/legacy_gateway.py", "src/utils/format.py"],
+      "status": "current"
+    },
+    "ARCHITECTURE.md": {
+      "depends_on": ["src/payments/retry.py"],
+      "status": "current"
+    },
+    "components/payment.md": {
+      "depends_on": ["src/payments/retry.py"],
+      "status": "current"
+    },
+    "components/utils.md": {
+      "depends_on": ["src/utils/format.py"],
+      "status": "current"
+    }
+  },
+  "claims": [
+    {
+      "claim_id": "payment-retry-policy",
+      "statement": "The retry policy allows three attempts.",
+      "status": "verified",
+      "confidence": "high",
+      "evidence": [
+        { "path": "src/payments/retry.py", "symbol": "retry_count", "lines": "1-2" }
+      ],
+      "depends_on": ["src/payments/retry.py"],
+      "last_verified_commit": "$sem_sha"
+    },
+    {
+      "claim_id": "legacy-gateway-active",
+      "statement": "Legacy gateway module is active.",
+      "status": "verified",
+      "confidence": "high",
+      "evidence": [
+        { "path": "src/payments/legacy_gateway.py", "symbol": "use_legacy_gateway", "lines": "1-2" }
+      ],
+      "depends_on": ["src/payments/legacy_gateway.py"],
+      "last_verified_commit": "$sem_sha"
+    }
+  ]
+}
+EOF
+
+# Semantic Test 12: Source behavior changes (return 3 -> return 5 updates claim and doc)
+cat > "$REPO_SEM/src/payments/retry.py" <<'EOF'
+def retry_count():
+    return 5
+EOF
+git -C "$REPO_SEM" commit -am "feat(payments): increase retry_count from 3 to 5" -q
+drift_sem1="$(bash "$REFRESH_SH" check-drift "$REPO_SEM")"
+assert_eq "$(printf '%s\n' "$drift_sem1" | jq -r '.stale_claims | index("payment-retry-policy") != null')" "true" "SemTest 1: payment-retry-policy marked stale"
+bash "$REFRESH_SH" apply-refresh "$REPO_SEM"
+assert_eq "$(jq -r '.claims[] | select(.claim_id == "payment-retry-policy") | .statement' "$REPO_SEM/.codeintel/manifests/analysis_state.json")" "The retry policy allows 5 attempts." "SemTest 1: claim statement updated to 5 attempts"
+grep -q "allows 5 attempts" "$REPO_SEM/.codeintel/components/payment.md" || fail "SemTest 1: components/payment.md not updated to 5 attempts" "$(cat "$REPO_SEM/.codeintel/components/payment.md")"
+pass "12/16 Semantic regression 1 (Behavior change): retry_count 3->5 invalidated old claim and updated knowledge to 5"
+
+# Semantic Test 13: Unrelated source changes (modify utils/format.py -> payment claim & doc untouched)
+payment_doc_before="$(cksum "$REPO_SEM/.codeintel/components/payment.md")"
+cat > "$REPO_SEM/src/utils/format.py" <<'EOF'
+def fmt_currency(val):
+    return f"USD {val:.2f}"
+EOF
+git -C "$REPO_SEM" commit -am "chore(utils): format currency with USD prefix" -q
+drift_sem2="$(bash "$REFRESH_SH" check-drift "$REPO_SEM")"
+assert_eq "$(printf '%s\n' "$drift_sem2" | jq -r '.stale_claims | index("payment-retry-policy") == null')" "true" "SemTest 2: payment-retry-policy remains current on unrelated util change"
+assert_eq "$(printf '%s\n' "$drift_sem2" | jq -r '.stale_artifacts | index("components/payment.md") == null')" "true" "SemTest 2: components/payment.md not marked stale on unrelated util change"
+bash "$REFRESH_SH" apply-refresh "$REPO_SEM"
+assert_eq "$(cksum "$REPO_SEM/.codeintel/components/payment.md")" "$payment_doc_before" "SemTest 2: components/payment.md was not rewritten"
+assert_eq "$(jq -r '.analysis.last_refresh_metrics.reused_existing_knowledge' "$REPO_SEM/.codeintel/manifests/analysis_state.json")" "true" "SemTest 2: metrics confirm existing knowledge reuse"
+pass "13/16 Semantic regression 2 (Unrelated change): payment claim and component doc remained current and untouched"
+
+# Semantic Test 14: Source deletion preserves Historical Notes while invalidating claim and removing active catalog entry
+git -C "$REPO_SEM" rm -q src/payments/legacy_gateway.py
+git -C "$REPO_SEM" commit -q -m "chore: delete legacy_gateway.py"
+bash "$REFRESH_SH" apply-refresh "$REPO_SEM"
+grep -q "In v0, \`src/payments/legacy_gateway.py\` handled synchronous XML calls" "$REPO_SEM/.codeintel/COMPONENT_CATALOG.md" \
+  || fail "SemTest 3: Historical Notes section was destroyed on file deletion" "$(cat "$REPO_SEM/.codeintel/COMPONENT_CATALOG.md")"
+if grep -q "^- \`src/payments/legacy_gateway.py\`" "$REPO_SEM/.codeintel/COMPONENT_CATALOG.md" "$REPO_SEM/.codeintel/INDEX.md"; then
+  fail "SemTest 3: active catalog bullet for deleted file remained" "found active bullet"
+fi
+assert_eq "$(jq -r '.claims[] | select(.claim_id == "legacy-gateway-active") | .status' "$REPO_SEM/.codeintel/manifests/analysis_state.json")" "contradicted" "SemTest 3: claim for deleted module marked contradicted, not verified"
+pass "14/16 Semantic regression 3 (Deletion safety): invalidated deleted module claim, purged active catalog bullet, preserved Historical Notes"
+
+# Semantic Test 15: Interrupted refresh rolls back staged artifact changes atomically
+cat > "$REPO_SEM/src/payments/retry.py" <<'EOF'
+def retry_count():
+    return 7
+EOF
+git -C "$REPO_SEM" commit -am "feat(payments): bump retry_count to 7" -q
+arch_before="$(cksum "$REPO_SEM/.codeintel/ARCHITECTURE.md")"
+payment_before="$(cksum "$REPO_SEM/.codeintel/components/payment.md")"
+if bash "$REFRESH_SH" apply-refresh "$REPO_SEM" --fail-stage "components/payment.md" 2>/dev/null; then
+  fail "SemTest 4: expected interrupted refresh to exit non-zero" "exited 0"
+fi
+assert_eq "$(cksum "$REPO_SEM/.codeintel/ARCHITECTURE.md")" "$arch_before" "SemTest 4: earlier staged artifact ARCHITECTURE.md was rolled back, not partially promoted"
+assert_eq "$(cksum "$REPO_SEM/.codeintel/components/payment.md")" "$payment_before" "SemTest 4: components/payment.md untouched on failure"
+[[ ! -d "$REPO_SEM/.codeintel/manifests/.staging" && ! -d "$REPO_SEM/.codeintel/manifests/.refresh.lock" ]] \
+  || fail "SemTest 4: staging or lock directory leaked after failure" "staging/lock exists"
+bash "$REFRESH_SH" apply-refresh "$REPO_SEM"
+pass "15/16 Semantic regression 4 (Interrupted refresh): transactional staging prevented partial artifact mutation on disk"
+
+# Semantic Test 16: Uncommitted working-tree change detected via diff & evidence_hash despite unchanged HEAD commit
+head_before_dirty="$(git -C "$REPO_SEM" rev-parse HEAD)"
+cat > "$REPO_SEM/src/payments/retry.py" <<'EOF'
+def retry_count():
+    return 9
+EOF
+drift_sem5="$(bash "$REFRESH_SH" check-drift "$REPO_SEM")"
+assert_eq "$(printf '%s\n' "$drift_sem5" | jq -r '.head_commit')" "$head_before_dirty" "SemTest 5: HEAD commit hash is unchanged"
+assert_eq "$(printf '%s\n' "$drift_sem5" | jq -r '.has_drift')" "true" "SemTest 5: drift detected despite unchanged commit hash"
+assert_eq "$(printf '%s\n' "$drift_sem5" | jq -r '.working_tree_clean')" "false" "SemTest 5: working_tree_clean is false"
+assert_eq "$(printf '%s\n' "$drift_sem5" | jq -r '.stale_claims | index("payment-retry-policy") != null')" "true" "SemTest 5: claim invalidated by uncommitted change and evidence_hash mismatch"
+pass "16/16 Semantic regression 5 (Uncommitted change & evidence hash): detected dirty source change despite identical commit hash"
 
 echo ""
-echo "All $pass_count/11 refresh and evidence test scenarios passed!"
+echo "All $pass_count/16 refresh, evidence, and semantic regression test scenarios passed!"

@@ -2,7 +2,17 @@
 
 Deterministic file matching (`artifacts.<doc>.depends_on` and `claims[].depends_on`) is only the starting point for refresh. `change_impact_analyst` expands the initial change set into a complete impact graph before investigation begins.
 
-## 1. Direct vs. Indirect Impact
+## 1. Layered Change-Impact Precedence
+
+Evaluate change impact in strict precedence order so localized edits refresh only relevant knowledge while uncertain changes fall back conservatively:
+
+1. **Explicit dependencies (`depends_on` & `evidence[].path` / `evidence_hash`):** Artifacts and claims whose recorded dependencies match a changed, deleted, or renamed path.
+2. **Known component and workflow relationships:** Workflows (`workflows/*.md`) and contracts that step through or share dependencies with a modified component (`components/*.md`).
+3. **Language- or framework-aware relationships:** Direct callers, importers, route registrations, or DI bindings of the modified symbol/module.
+4. **Scoped path-category heuristics:** Cross-cutting categories (`entry_point`, `public_interface`, `database_schema`, `api_route`, `dependency_manifest`, `tests`). Never trigger a repository-wide architecture or catalog rebuild when only a localized test or internal component helper changes.
+5. **Conservative invalidation when impact is uncertain:** When a modified source file is not covered by existing `depends_on` mappings or uses unresolved dynamic dispatch, flag unverified artifacts and disclose the uncertainty in `analysis.unresolved_items`.
+
+## 2. Direct vs. Indirect Impact
 
 When a file changes, classify impact into three tiers:
 

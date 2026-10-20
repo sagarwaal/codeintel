@@ -38,6 +38,10 @@ Every subagent or analysis pass returns a JSON payload matching [agent-result-te
       "kind": "calls"
     }
   ],
+  "recommended_updates": [
+    "components/payments.md",
+    "workflows/checkout.md"
+  ],
   "unresolved_questions": [],
   "verification": {
     "source_inspected": true,
@@ -76,24 +80,35 @@ Engineering claims are atomic, falsifiable statements backed by source evidence 
     "src/payments/retry.ts",
     "src/payments/service.ts"
   ],
-  "last_verified_commit": "abc123"
+  "last_verified_commit": "abc123",
+  "evidence_hash": "cksum:21948102-48"
 }
 ```
 
-### Claim fields and rules
+### Claim fields, confidence vs. freshness, and selective usage
 - **`claim_id`**: Stable kebab-case identifier (`claim-<domain>-<topic>-<nnn>`).
 - **`statement`**: Precise behavioral or architectural claim. Avoid vague prose when a concrete invariant can be stated.
-- **`status`**: One of:
-  - `verified` — directly established by current source inspection and/or executed verification.
-  - `observed` — behavior observed, full mechanism not completely traced.
-  - `inferred` — supported by strong indirect evidence.
-  - `suspected` — plausible hypothesis requiring verification.
-  - `unverified` — not checked in the current analysis.
-  - `stale` — one or more `depends_on` files changed since `last_verified_commit` and the claim has not yet been revalidated.
-  - `contradicted` — current code disproves the previous statement; requires immediate revision or defect filing.
-- **`confidence`**: `high`, `medium`, or `low`.
+- **Distinguishing Freshness (`status`) from Confidence (`confidence`)**:
+  - **Freshness / Verification (`status`)** answers *"Is the evidence still applicable to the current source?"*:
+    - `verified` — directly established by current source inspection and/or executed verification.
+    - `observed` — behavior observed, full mechanism not completely traced.
+    - `inferred` — supported by strong indirect evidence.
+    - `suspected` — plausible hypothesis requiring verification.
+    - `unverified` — not checked in the current analysis.
+    - `stale` — one or more `depends_on` or `evidence[].path` files changed (or `evidence_hash` drifted) and the claim has not yet been revalidated.
+    - `contradicted` — current code or file deletion disproves the previous statement; requires immediate revision or defect filing.
+  - **Confidence (`confidence`)** answers *"How strongly does the evidence support this statement?"* (`high`, `medium`, or `low`). A claim can have `high` confidence but become `stale` when its file changes; conversely, a freshly inspected claim may have `low` confidence if it depends on runtime configuration or dynamic dispatch.
 - **`evidence`**: Non-empty array for `verified`, `observed`, or `inferred` claims. Line ranges (`lines`) help locate code quickly, but during refresh the implementation itself must be re-inspected rather than trusting line numbers alone.
 - **`depends_on`**: Non-empty array of repository-relative paths or directory prefixes that, if modified or deleted, invalidate the claim.
+- **`evidence_hash`** *(optional)*: Deterministic content fingerprint (`cksum:<crc>-<bytes>` or `sha256:...`) of the supporting source files so uncommitted working-tree edits invalidate the claim even when `last_verified_commit` matches `HEAD`.
+- **Selective structured claims**: Do not create structured claim records for every sentence of descriptive Markdown. Reserve structured claims in `analysis_state.json` for high-consequence statements about:
+  1. Security and authorization boundaries
+  2. Public interfaces and external contracts
+  3. Critical business rules and invariants
+  4. Database operations and transaction boundaries
+  5. Error handling, timeouts, and retry policies
+  6. Confirmed defects
+  7. Architectural constraints
 
 ## 4. Candidate & Confirmed Finding Schema
 

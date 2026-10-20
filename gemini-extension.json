@@ -1,5 +1,5 @@
 {
   "name": "codeintel",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Deep repository analysis that maintains a local, Git-ignored knowledge base for architecture, debugging, test gaps, change impact, and safe feature work."
 }

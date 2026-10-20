@@ -11,8 +11,8 @@ All notable changes to this project are documented here. This project follows [S
 - **Workflow Grounding (Consumer)** mode and **Before -> During -> After** workflow lifecycle hook in `SKILL.md`, plus a **Workflow & Subagent Context Pack** handoff table in `quick-start-template.md` and `task-routing-template.md` so planning, implementation, TDD, debugging, and code-review workflows automatically discover and use `.codeintel/`.
 - Shared evidence model (`skills/codeintel/references/evidence-model.md`) and two-tier impact propagation guide (`skills/codeintel/references/impact-analysis.md`).
 - Schema templates in `skills/codeintel/templates/`: `analysis-state-template.json`, `agent-result-template.json`, and `claim-template.json`.
-- `scripts/codeintel-refresh.sh` for manifest/claim/agent-result validation, v1 -> v2 migration, drift detection, invalidation mapping, and atomic checkpoint updates.
-- `tests/test-refresh.sh` covering 11 fixture-based refresh and evidence validation scenarios in CI.
+- `scripts/codeintel-refresh.sh` for manifest/claim/agent-result validation, v1 -> v2 migration, layered drift detection, claim `evidence_hash` fingerprinting, transactional `.staging/` artifact promotion, repository-local `.refresh.lock`, safe deletion/rename handling, and efficiency metrics.
+- `tests/test-refresh.sh` covering 16 fixture-based refresh, evidence validation, and semantic regression scenarios in CI.
 
 ## [1.0.0] - 2026-10-19
 

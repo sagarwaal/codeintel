@@ -187,7 +187,7 @@ Dynamic dispatch, reflection, generated code, runtime registration, external con
 │   ├── validate.sh          # manifest, skill, and schema v2 validation
 │   └── codeintel-refresh.sh # drift detection, schema migration, and refresh engine
 ├── tests/
-│   └── test-refresh.sh      # 11-scenario automated fixture refresh & evidence test suite
+│   └── test-refresh.sh      # 16-scenario automated fixture refresh, evidence & semantic regression test suite
 ├── skills/
 │   └── codeintel/            # the skill (invoke as /codeintel)
 │       ├── SKILL.md

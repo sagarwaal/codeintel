@@ -31,6 +31,9 @@
       "kind": "calls"
     }
   ],
+  "recommended_updates": [
+    "ARCHITECTURE.md"
+  ],
   "unresolved_questions": [],
   "verification": {
     "source_inspected": true,

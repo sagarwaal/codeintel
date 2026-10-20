@@ -172,15 +172,20 @@ For each significant finding, capture:
    - `working_tree_clean`: Boolean indicating whether the working tree had no staged/unstaged/untracked changes when inspected.
    - `includes_uncommitted_changes`: Boolean indicating whether uncommitted working-tree changes were folded into the analysis. If `true`, the knowledge base reflects `head_commit` plus local modifications, not a clean `head_commit` tree.
 3. **`analysis`**:
-   - `status`: One of `"complete"`, `"partial"`, or `"stale"`.
+   - `status`: One of `"complete"`, `"partial"`, `"stale"`, or `"failed"`.
    - `scope`: Last executed refresh scope (`"full"`, `"incremental"`, or `"scoped"`).
    - `last_successful_refresh`: ISO-8601 UTC timestamp of the last successful analysis or refresh (`null` if none).
    - `unresolved_items`: Array of strings or objects describing unverified claims, dynamic dependencies, or incomplete refresh steps.
+   - `last_refresh_metrics` *(optional)*: Diagnostic efficiency counters (`artifacts_considered`, `artifacts_refreshed`, `claims_revalidated`, `full_analysis_required`, `reused_existing_knowledge`, `duration_ms`).
 4. **`artifacts`**:
    - Keyed by path relative to `.codeintel/` (for example `"ARCHITECTURE.md"`, `"components/auth.md"`).
    - `depends_on`: Non-empty array of repository-relative file paths or directory prefixes (ending with `/`) that support the claims in that artifact.
-   - `status`: One of `"current"`, `"stale"`, or `"unverified"`.
-   - **Invariant:** `analysis.status` cannot be `"complete"` if any artifact in the declared scope has `status: "stale"`.
+   - `status`: One of:
+     - `"current"` — passed required checks and its relevant dependencies are up to date.
+     - `"stale"` — a relevant source change requires revalidation.
+     - `"unverified"` — available evidence is insufficient to establish correctness.
+     - `"failed"` — a required validation or refresh step failed.
+   - **Invariant:** `analysis.status` cannot be `"complete"` if any artifact in the declared scope has `status: "stale"` or `"failed"`, or if any claim has `status: "stale"`.
 
 ### Backward-compatible migration (Schema v1 -> Schema v2)
 
