@@ -1,6 +1,6 @@
 ---
 name: codeintel
-description: Deeply analyze a software repository and create or incrementally maintain a local, Git-ignored project intelligence knowledge base for architecture understanding, navigation, debugging, consistency reviews, test-gap discovery, change-impact analysis, and safe feature implementation. Use when onboarding to an existing codebase, auditing a project, investigating a complex bug, planning a feature, or refreshing repository knowledge. Not for small single-file questions or quick edits.
+description: Deeply analyze a software repository and create, consume, or incrementally maintain a local, Git-ignored .codeintel/ engineering knowledge base for architecture understanding, navigation, debugging, consistency reviews, test-gap discovery, change-impact analysis, and safe feature implementation. Use when onboarding to a codebase, auditing a project, investigating a bug, planning or implementing a feature, refactoring, reviewing code, writing tests, or refreshing repository knowledge—and always check and use .codeintel/ first whenever it exists in the workspace.
 ---
 
 # CodeIntel
@@ -15,27 +15,63 @@ The source repository is the source of truth. Project intelligence is derived kn
 
 Select the mode that fits the request:
 
-1. **Deep Analysis** — establish a comprehensive initial understanding of the repository and create the knowledge base.
-2. **Task Investigation** — use existing knowledge to investigate a specific bug, feature, refactor, or design question; inspect relevant source and dependencies rather than reanalyzing everything.
-3. **Knowledge Refresh** — update affected knowledge after code changes, structural changes, or detected staleness.
-4. **Audit** — focus on correctness, architecture, consistency, security, performance, maintainability, and test coverage.
+1. **Deep Analysis** — create the initial `.codeintel/` knowledge base or perform a full rebuild when existing state is missing, invalid, or too unreliable to update incrementally.
+2. **Workflow Grounding (Consumer)** — fast path when `.codeintel/` already exists and the primary task is planning, implementing a feature, fixing a bug, refactoring, writing tests, or reviewing code (including inside external workflows such as `/plan`, brainstorming, TDD, or subagent execution). Consume existing knowledge before editing code, then run a scoped/incremental refresh after the change.
+3. **Task Investigation** — refresh and inspect only the knowledge needed for the current bug, feature, refactor, or design question rather than reanalyzing everything.
+4. **Knowledge Refresh** — synchronize existing knowledge with source changes using a two-phase workflow: **Phase A — Check drift** (read-only) followed by **Phase B — Refresh knowledge** (writes approved scope: `incremental`, `scoped`, or `full`).
+5. **Audit** — revalidate correctness, architecture, consistency, security, performance, maintainability, and testing claims within the requested scope.
 
-If the user's intent is ambiguous, infer the narrowest useful mode and explain the scope.
+If the user's intent is ambiguous, infer the narrowest useful mode and explain the scope. A routine refresh must not automatically become a full audit; conversely, if a refresh uncovers a potential critical defect, investigate and record it with evidence rather than treating the refresh as documentation-only.
 
 | Mode | Run | Skip unless needed |
 |---|---|---|
-| Deep Analysis | Steps 0–15 | — |
-| Task Investigation | Step 0, then Steps 5, 6, 7 scoped to the task; update affected docs (Step 14) | Broad reconnaissance and repo-wide audits |
-| Knowledge Refresh | Step 0, Step 14, then targeted Steps 3–7 for changed areas; Step 15 | Unchanged areas |
+| Deep Analysis | Steps 0–15 (`full` scope) | — |
+| Workflow Grounding | Step 0 (Before/During/After workflow hook) + Step 14 (`incremental` refresh after code edits) | Broad reconnaissance and repo-wide rewrites |
+| Task Investigation | Step 0, then Steps 5, 6, 7 scoped to the task; Step 14 (`scoped` refresh) | Broad reconnaissance and repo-wide audits |
+| Knowledge Refresh | Step 0, Step 14 Phase A (drift plan) -> Phase B (targeted Steps 3–7 + patch + checkpoint); Step 15 | Unchanged areas |
 | Audit | Step 0, Steps 6, 7, 9, 10, 13, 15 | Feature guidance (Step 11) |
 
 Scale the work to the request. A knowledge base that covers part of the repository accurately is better than one that covers all of it superficially.
+
+## Orchestrator, Optional Subagents & Shared Evidence Model
+
+CodeIntel operates around **one orchestrator, six specialized analysis roles, a shared evidence model, and a single controlled knowledge writer**.
+
+Where the host coding agent supports subagents (e.g., `Task`/`Agent`/`invoke_subagent` tools), dispatch read-only subagents in parallel when their scopes are independent. Where the host does not support subagents, or when one role depends on another's output, execute the same role protocols sequentially in the main context. Never use an LLM subagent for a task that a deterministic script (`scripts/codeintel-refresh.sh` or `scripts/validate.sh`) performs predictably.
+
+### Specialized Analysis Roles
+
+| Role ID | Role Definition | Primary Responsibility | Can write `.codeintel/`? |
+|---|---|---|---|
+| `repository_mapper` | [agents/repository-mapper.md](agents/repository-mapper.md) | Map languages, entry points, modules, dependency direction, and dynamic registration | No (read-only) |
+| `behavior_tracer` | [agents/behavior-tracer.md](agents/behavior-tracer.md) | Trace end-to-end execution, callers/callees, invariants, side effects, and error paths | No (read-only) |
+| `change_impact_analyst` | [agents/change-impact-analyst.md](agents/change-impact-analyst.md) | Expand drift across direct/indirect dependencies ([impact-analysis.md](references/impact-analysis.md)) | No (read-only) |
+| `test_quality_analyst` | [agents/test-quality-analyst.md](agents/test-quality-analyst.md) | Map behaviors to tests, distinguish inspected vs. executed tests, find behavioral gaps | No (read-only) |
+| `defect_consistency_auditor` | [agents/defect-consistency-auditor.md](agents/defect-consistency-auditor.md) | Identify candidate defects, contract mismatches, and reassess open findings | No (read-only) |
+| `knowledge_reconciler` | [agents/knowledge-reconciler.md](agents/knowledge-reconciler.md) | Resolve cross-agent conflicts, compare against existing claims, propose minimal patch plan | Proposes patch plan only |
+
+All roles return structured results conforming to [evidence-model.md](references/evidence-model.md) ([templates/agent-result-template.json](templates/agent-result-template.json) and [templates/claim-template.json](templates/claim-template.json)). Only the **Knowledge Writer** phase of the main orchestrator applies approved updates to `.codeintel/`, and only the deterministic **Checkpoint Manager** advances `manifests/analysis_state.json` after validation passes.
+
+### Task-Based Agent Selection
+
+Do not run all six roles on every request. Select the minimal set needed:
+
+| Operation | Roles to run |
+|---|---|
+| First-time deep analysis | `repository_mapper`, `behavior_tracer`, `test_quality_analyst`, `defect_consistency_auditor`, then `knowledge_reconciler` |
+| Small bug investigation | `behavior_tracer`, `defect_consistency_auditor` |
+| API contract change | `behavior_tracer`, `change_impact_analyst`, `test_quality_analyst`, then `knowledge_reconciler` |
+| Incremental refresh | `change_impact_analyst`, relevant domain role (`behavior_tracer` / `test_quality_analyst`), `knowledge_reconciler` |
+| Full refresh | All relevant analysis roles, then `knowledge_reconciler` |
+| Knowledge audit | `knowledge_reconciler`, `defect_consistency_auditor`, `test_quality_analyst` |
+| Documentation-only change | `change_impact_analyst`, `knowledge_reconciler` |
+| New feature planning | `repository_mapper` (as needed), `behavior_tracer`, `change_impact_analyst`, `test_quality_analyst` |
 
 ## Non-negotiable safeguards
 
 - Start by identifying the repository root, current branch/commit when available, and Git working-tree status.
 - Preserve user changes. Never reset, clean, overwrite, or discard unrelated work.
-- Do not modify application source code during a knowledge-only analysis unless explicitly authorized.
+- Do not modify application source code during a knowledge-only analysis or refresh unless explicitly authorized.
 - Do not run destructive commands, migrations, deployment operations, or scripts with external side effects without explicit authorization.
 - Inspect existing `.gitignore` and agent instructions before editing them.
 - Do not overwrite existing project documentation or agent instructions. Make minimal additive changes.
@@ -44,21 +80,25 @@ Scale the work to the request. A knowledge base that covers part of the reposito
 - Do not claim a test, command, scan, or verification passed unless it was actually run and passed.
 - Distinguish verified facts from inference, suspicion, and unknowns.
 - Do not claim exhaustive coverage when parts of the repository were not inspected.
+- Never advance `repository.analyzed_commit` in `manifests/analysis_state.json` if a refresh fails or completes only partially.
 - If the directory is not a Git repository, skip Git-specific steps, say so, and do not initialize Git.
 - For large repositories or monorepos, work in phases, prioritize high-impact areas, checkpoint progress in `manifests/analysis_state.json`, and report partial coverage honestly instead of exhausting the context budget.
 
-## Step 0 — Reuse existing knowledge
+## Step 0 — Reuse existing knowledge & ground active workflows
 
-Before analyzing anything, check whether `.codeintel/` (or an equivalent) already exists.
+Before analyzing or modifying anything, check whether `.codeintel/` (or an equivalent) already exists. Note that because `.codeintel/` is Git-ignored, standard search tools (`rg`, `git grep`) skip it by default—always check `.codeintel/INDEX.md` explicitly by path.
 
-If it does:
+If `.codeintel/` exists:
 
-1. Read `INDEX.md` and `manifests/analysis_state.json`.
-2. Compare the recorded commit with the current `HEAD` (for example `git diff --name-status <recorded_commit>..HEAD` plus `git status --porcelain`) to find what may be stale.
-3. Use the existing knowledge as a map, but verify any claim that matters for the current task against current source.
-4. Choose the narrowest mode that satisfies the request.
+1. **Read the entry pack:** Read `.codeintel/INDEX.md`, `.codeintel/agents/QUICK_START.md`, `.codeintel/agents/TASK_ROUTING.md`, and `.codeintel/manifests/analysis_state.json`. If `analysis_state.json` uses `"schema_version": 1`, migrate it in place to Schema v2 per [knowledge-base-structure.md](references/knowledge-base-structure.md#backward-compatible-migration-schema-v1---schema-v2) without discarding existing knowledge.
+2. **Check targeted drift:** Run a read-only drift check against `repository.analyzed_commit` (see [change-protocol.md](references/change-protocol.md#step-1--detect-repository-changes)). If artifacts or claims relevant to the current task are marked `stale`, verify those specific files against current source first.
+3. **Ground downstream workflows (Before -> During -> After):**
+   - **Before planning / brainstorming / debugging:** Read the owning component doc (`components/*.md`), workflow trace (`workflows/*.md`), `DEPENDENCY_MAP.md`, and `KNOWN_ISSUES.md` to identify blast radius, invariants, and reference patterns without rediscovering the repo. When dispatching planner, implementer, or reviewer subagents in external workflows, pass the relevant `.codeintel/` file paths in their prompt context.
+   - **During implementation / TDD / code review:** Follow `DESIGN_PRINCIPLES.md`, `FEATURE_IMPLEMENTATION_GUIDE.md`, `API_AND_CONTRACTS.md`, and `agents/REVIEW_CHECKLIST.md`; run the exact focused test commands recorded in `TEST_STRATEGY.md`.
+   - **After code or test changes complete:** Run Step 14 (**Knowledge Refresh**, `incremental` or `scoped`) so `.codeintel/` and `manifests/analysis_state.json` stay synchronized with the newly written code.
+4. **Select the narrowest mode:** Choose `Workflow Grounding`, `Task Investigation`, or `Knowledge Refresh` (`incremental`, `scoped`, or `full`) that satisfies the request.
 
-If it does not exist and the request is not Deep Analysis, do the task-scoped work first and offer to create the knowledge base rather than creating it unprompted.
+If `.codeintel/` does not exist and the request is not Deep Analysis, do the task-scoped work first and offer to create the knowledge base rather than creating it unprompted.
 
 ## Step 1 — Reconnaissance
 
@@ -238,10 +278,21 @@ Create these agent-facing files when useful, starting from the bundled templates
 | `agents/TASK_ROUTING.md` | [templates/task-routing-template.md](templates/task-routing-template.md) |
 | `agents/CHANGE_PROTOCOL.md` | [references/change-protocol.md](references/change-protocol.md) |
 | `agents/REVIEW_CHECKLIST.md` | [templates/review-checklist.md](templates/review-checklist.md) |
+| `manifests/analysis_state.json` | [templates/analysis-state-template.json](templates/analysis-state-template.json) |
+| Subagent / role result payload | [templates/agent-result-template.json](templates/agent-result-template.json) |
+| Atomic claim record | [templates/claim-template.json](templates/claim-template.json) |
 
-The quick start should explain project purpose, architecture, entry points, core components, business-logic location, persistence, tests, critical workflows, common pitfalls, and the fastest way to verify a change.
+The quick start should explain project purpose, architecture, entry points, core components, business-logic location, persistence, tests, critical workflows, common pitfalls, the fastest way to verify a change, and a **Workflow & Subagent Handoff** table mapping downstream workflows (planning, implementation, debugging, testing, code review) to the exact `.codeintel/` files they should read.
 
-To help future sessions discover the knowledge base, you may propose adding a single line such as `Project knowledge: see .codeintel/INDEX.md (local, not committed).` to an existing `AGENTS.md`, `CLAUDE.md`, or equivalent. Add it only with the user's permission, and never create or rewrite those files for this purpose.
+Because `.codeintel/` is Git-ignored via `.git/info/exclude`, search tools like `ripgrep` (`rg`) and `git grep` skip it unless pointed to `.codeintel/` explicitly. To ensure all future sessions, skills, and subagent workflows automatically discover and use `.codeintel/`, ask the user for permission to append this compact discovery hook to an existing `AGENTS.md`, `CLAUDE.md`, or workspace instruction file (never create or overwrite those files without permission):
+
+```markdown
+## Local Code Intelligence (`.codeintel/`)
+If `.codeintel/INDEX.md` exists (Git-ignored; check explicitly by path since `rg` skips ignored dirs):
+1. **Before planning, debugging, or coding:** Read `.codeintel/INDEX.md`, `.codeintel/agents/QUICK_START.md`, and `.codeintel/agents/TASK_ROUTING.md` (plus relevant `.codeintel/components/` or `.codeintel/workflows/` docs) and include them in subagent context.
+2. **During implementation & review:** Follow `.codeintel/DESIGN_PRINCIPLES.md`, `.codeintel/FEATURE_IMPLEMENTATION_GUIDE.md`, and test commands in `.codeintel/TEST_STRATEGY.md`.
+3. **After code changes:** Run an incremental CodeIntel refresh so `.codeintel/manifests/analysis_state.json` stays in sync.
+```
 
 ## Step 13 — Record evidence and uncertainty
 
@@ -258,22 +309,91 @@ Label claims where helpful:
 
 Phrase negative findings carefully. For example: “No direct tests for the denial branch were found in the inspected test files; dynamic test registration and coverage instrumentation were not verified.”
 
-## Step 14 — Support incremental refresh
+## Step 14 — Knowledge Refresh Protocol
 
-Record analysis metadata in `manifests/analysis_state.json`, including commit/branch when available, timestamp, included/excluded areas, completed phases, commands executed, verification results, unresolved questions, and limitations. Follow the field list in [knowledge-base-structure.md](references/knowledge-base-structure.md#analysis-state-fields) so other sessions and agents can read it. Do not store secrets.
+Maintain `.codeintel/` as an accurate, evidence-backed representation of the current repository. Reuse valid existing knowledge, detect stale claims, investigate relevant changes, and update only the affected knowledge. The source repository is authoritative; generated knowledge must never override contradictory source evidence.
 
-Maintain a deterministic source inventory with relative paths, categories, content hashes where useful, and links to related component docs/findings.
+Follow the detailed algorithm and 7-phase pipeline (**1. Detect -> 2. Plan -> 3. Investigate -> 4. Reconcile -> 5. Update -> 6. Validate -> 7. Commit Checkpoint**) in [change-protocol.md](references/change-protocol.md), the transitive propagation rules in [impact-analysis.md](references/impact-analysis.md), the shared evidence schemas in [evidence-model.md](references/evidence-model.md), and the Schema v2 manifest rules in [knowledge-base-structure.md](references/knowledge-base-structure.md#analysis-state-fields).
 
-On refresh (see also [change-protocol.md](references/change-protocol.md)):
+### Two-Phase Workflow & Scopes
 
-1. Identify added, modified, renamed, and deleted files.
-2. Map changes to components and contracts.
-3. Inspect relevant callers and downstream dependencies.
-4. Update affected docs, maps, tests, findings, and indexes.
-5. Revalidate claims that may now be stale.
-6. Record the update and unresolved work.
+- **Phase A — Check drift (Read-only):** Compare `manifests/analysis_state.json` with the current repository. Identify changed, staged, unstaged, untracked, deleted, and renamed files, potentially stale knowledge, deleted components, and unresolved dependencies. Produce a proposed refresh plan without modifying `.codeintel/` or advancing checkpoints.
+- **Phase B — Refresh knowledge (Writes approved scope):** Investigate affected code, revalidate claims, patch impacted documents minimally, remove obsolete references, run relevant checks, and advance `manifests/analysis_state.json` only after successful completion.
 
-Do not regenerate everything after every small change. Broaden the review for public interfaces, shared data models, core abstractions, or architectural boundaries. Preserve concise update summaries under `history/` where useful.
+Supported refresh scopes:
+- **`incremental`** — refresh only knowledge affected by detected changes since `repository.analyzed_commit`.
+- **`scoped`** — refresh specific files, components, workflows, or findings required for the current task.
+- **`full`** — rebuild the knowledge model when existing state is missing, invalid, or too unreliable to update incrementally.
+
+### 1. Select the refresh scope
+Before refreshing, determine:
+- Whether `.codeintel/` exists and `manifests/analysis_state.json` is valid (migrating Schema v1 to Schema v2 in place if needed without discarding existing knowledge).
+- The repository identity, current `HEAD`, and previously recorded `repository.analyzed_commit`.
+- Whether the repository has committed, staged, unstaged, untracked, deleted, or renamed files that affect the analysis.
+- Whether the previous analysis state can be safely compared with the current repository (`git merge-base --is-ancestor`).
+- Whether the requested task requires a `scoped`, `incremental`, or `full` refresh.
+
+Never discard user changes or assume the working tree is clean.
+
+### 2. Check drift before writing (Phase A)
+Construct a read-only refresh plan containing:
+- Changed files and change types (`A`, `M`, `D`, `R`, `U`).
+- Potentially affected components and workflows.
+- Knowledge documents (`artifacts.<doc>.depends_on`) and claims requiring revalidation.
+- Relevant tests and contracts.
+- Deleted or renamed symbols and stale references.
+- Unresolved dependencies and uncertainty.
+- Proposed refresh scope and reasons for that scope.
+
+Drift checking is read-only. It must not modify knowledge artifacts or advance the successful-analysis checkpoint.
+
+### 3. Determine what to invalidate
+Use `manifests/analysis_state.json` (`artifacts.<doc>.depends_on`) and the invalidation table in [change-protocol.md](references/change-protocol.md#step-2--map-changed-files-to-knowledge-invalidation-rules) to identify potentially stale knowledge.
+
+Propagate impact through known dependencies, including public interfaces, shared data models, runtime registration, configuration, event contracts, and cross-component workflows where relevant. When dependency information is incomplete, inspect the affected integration boundaries and disclose unresolved uncertainty. Do not assume that unchanged files imply unchanged behavior.
+
+### 4. Revalidate existing claims (Phase B)
+For each affected claim:
+- Locate and inspect its source evidence.
+- Inspect relevant callers, consumers, contracts, and tests.
+- Determine whether the claim remains correct, has changed, is contradicted, or cannot be verified.
+- Update its evidence and verification status (`VERIFIED`, `OBSERVED`, `INFERRED`, `SUSPECTED`, `UNVERIFIED`, `STALE`).
+- Reassess dependent claims and existing findings.
+
+Never mark a claim verified solely because its document was reviewed. Never mark a defect resolved without supporting evidence, and ensure unrelated source changes never mark an open finding resolved.
+
+### 5. Apply a minimal knowledge patch
+Update only affected knowledge artifacts and their necessary dependencies. Preserve unrelated content and user-authored material. Remove obsolete references when their removal is supported by the current repository. Record unresolved questions, incomplete analysis, and any checks that could not be performed. Do not modify application source code during a knowledge-only refresh unless separately authorized.
+
+### 6. Validate the proposed update
+Check:
+- Manifest schema v2 and invariant consistency.
+- Source references, `depends_on` arrays, and relevant file paths.
+- Cross-document references.
+- Component and dependency relationships.
+- Finding status and supporting evidence.
+- Relevant test commands and verification results.
+- Preservation of unrelated knowledge.
+- Completeness of the requested refresh scope.
+
+Report checks that were not executed. Never claim runtime verification when only static inspection was performed.
+
+### 7. Commit the analysis state
+Advance `repository.analyzed_commit` (via a staged `manifests/analysis_state.json.tmp` validated before replacement) **only after** all required work for the declared scope has completed successfully.
+
+If any required stage fails, preserve the previous successful checkpoint, set `analysis.status` to `"partial"`, and report the incomplete work in `analysis.unresolved_items`. Track the scope of the refresh and whether uncommitted changes were included (`repository.working_tree_clean`, `repository.includes_uncommitted_changes`). Do not claim that knowledge is fully synchronized with `HEAD` alone if uncommitted changes exist or relevant changes remain unaccounted for.
+
+### 8. Report the result
+Summarize:
+1. Files and knowledge artifacts refreshed.
+2. Claims revalidated, changed, or invalidated.
+3. Findings added, updated, or resolved (with evidence).
+4. Tests and validation checks actually performed.
+5. Remaining stale areas and unresolved questions.
+6. Whether the refresh completed fully or partially.
+7. The commit and working-tree state covered by the analysis.
+
+A successful refresh means the declared scope was investigated and validated, not that every possible repository behavior has been proven correct.
 
 ## Step 15 — Validate the result
 

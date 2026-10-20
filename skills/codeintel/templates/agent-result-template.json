@@ -1,0 +1,41 @@
+{
+  "task_id": "task-001",
+  "agent": "behavior_tracer",
+  "scope": [
+    "src/"
+  ],
+  "findings": [],
+  "claims": [
+    {
+      "claim_id": "claim-example-001",
+      "statement": "Example falsifiable engineering claim backed by source inspection.",
+      "status": "verified",
+      "confidence": "high",
+      "evidence": [
+        {
+          "path": "src/app.ts",
+          "symbol": "startApp",
+          "lines": "1-10"
+        }
+      ],
+      "depends_on": [
+        "src/app.ts"
+      ],
+      "last_verified_commit": "abc123"
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "src/app.ts",
+      "to": "src/auth/service.ts",
+      "kind": "calls"
+    }
+  ],
+  "unresolved_questions": [],
+  "verification": {
+    "source_inspected": true,
+    "tests_executed": false,
+    "commands_executed": [],
+    "limitations": []
+  }
+}

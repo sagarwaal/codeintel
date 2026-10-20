@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "repository": {
+    "root": ".",
+    "branch": null,
+    "head_commit": null,
+    "analyzed_commit": null,
+    "working_tree_clean": true,
+    "includes_uncommitted_changes": false
+  },
+  "analysis": {
+    "status": "partial",
+    "scope": "full",
+    "last_successful_refresh": null,
+    "unresolved_items": [],
+    "excluded_paths": [],
+    "commands_executed": [],
+    "verification_results": [],
+    "limitations": []
+  },
+  "artifacts": {},
+  "claims": []
+}

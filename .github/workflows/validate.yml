@@ -13,5 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate skills and plugin manifests
+      - name: Validate skills, plugin manifests, and schemas
         run: bash scripts/validate.sh
+      - name: Run automated refresh test suite
+        run: bash tests/test-refresh.sh

@@ -1,0 +1,17 @@
+{
+  "claim_id": "claim-example-001",
+  "statement": "Example falsifiable engineering claim backed by source inspection.",
+  "status": "verified",
+  "confidence": "high",
+  "evidence": [
+    {
+      "path": "src/app.ts",
+      "symbol": "startApp",
+      "lines": "1-10"
+    }
+  ],
+  "depends_on": [
+    "src/app.ts"
+  ],
+  "last_verified_commit": "abc123"
+}

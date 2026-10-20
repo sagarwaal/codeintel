@@ -63,6 +63,7 @@ The exact files are chosen based on repository complexity; the skill should not 
 - **Project-specific design guidance:** derive conventions from real implementations and distinguish them from recommendations.
 - **Security, performance, and reliability review:** identify relevant risks while separating confirmed findings from hypotheses.
 - **Incremental refresh:** update affected knowledge as the repository changes rather than regenerating everything after every task.
+- **Controlled specialist subagent layer:** delegate independent read-only investigations (`repository_mapper`, `behavior_tracer`, `change_impact_analyst`, `test_quality_analyst`, `defect_consistency_auditor`, `knowledge_reconciler`) using a shared evidence model (`agent-result.json` and `claim.json`), reconciled by a single controlled Knowledge Writer—or run the same roles sequentially when subagents are unavailable.
 - **Agent-friendly navigation:** provide quick-start guidance and task routing so future sessions can find the right code and tests.
 
 ## Installation
@@ -138,7 +139,7 @@ The skill is named **`codeintel`**. Invoke it explicitly where your agent suppor
 
 ### 4. Refresh knowledge after a change
 
-> Refresh the CodeIntel knowledge affected by the current code changes. Inspect the diff, identify affected components and contracts, update relevant documentation and inventories, record tests actually run, and mark anything unverified or stale. Do not regenerate unrelated documents.
+> Refresh the CodeIntel knowledge affected by the current code changes. First run Phase A (read-only drift check) against `.codeintel/manifests/analysis_state.json` to list changed files, affected components, and stale claims; then run Phase B to revalidate affected claims against current code and tests, patch only impacted documents while preserving user notes, and advance the analysis checkpoint only after validation succeeds.
 
 ## Operating principles
 
@@ -182,12 +183,17 @@ Dynamic dispatch, reflection, generated code, runtime registration, external con
 ├── .cursor-plugin/          # Cursor plugin
 ├── .antigravity-plugin/     # Antigravity plugin
 ├── gemini-extension.json    # Gemini CLI extension
-├── scripts/validate.sh      # manifest + skill validation (also bumps versions)
+├── scripts/
+│   ├── validate.sh          # manifest, skill, and schema v2 validation
+│   └── codeintel-refresh.sh # drift detection, schema migration, and refresh engine
+├── tests/
+│   └── test-refresh.sh      # 11-scenario automated fixture refresh & evidence test suite
 ├── skills/
 │   └── codeintel/            # the skill (invoke as /codeintel)
 │       ├── SKILL.md
-│       ├── references/
-│       └── templates/
+│       ├── agents/          # 6 read-only specialist role protocols & reconciler
+│       ├── references/      # architecture, change-protocol, evidence-model, impact-analysis, etc.
+│       └── templates/       # analysis-state, agent-result, claim, and review templates
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 ├── SECURITY.md

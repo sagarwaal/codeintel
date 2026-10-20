@@ -31,6 +31,7 @@
 ## Knowledge maintenance
 - [ ] Affected architecture/component/contract docs were updated.
 - [ ] Dependency and task-routing information was refreshed if needed.
-- [ ] Findings and coverage gaps were updated.
-- [ ] Analysis state and history accurately reflect the work.
+- [ ] Findings and coverage gaps were updated (and no open defect was marked resolved without evidence).
+- [ ] `manifests/analysis_state.json` (`depends_on`, `status`, working-tree flags) and history accurately reflect the work.
+- [ ] `repository.analyzed_commit` was advanced only after all required refresh stages succeeded.
 - [ ] Stale or unverified claims are labeled.
