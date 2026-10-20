@@ -8,7 +8,7 @@ The generated knowledge lives inside the target project in `.codeintel/` and is 
 
 ## Why
 
-AI coding agents can lose useful context between sessions and may make incomplete changes when they do not understand the wider system. Project Intelligence gives them a structured, maintainable map of the codebase—with explicit evidence, uncertainty, and refresh guidance.
+AI coding agents can lose useful context between sessions and may make incomplete changes when they do not understand the wider system. Codeintel gives them a structured, maintainable map of the codebase—with explicit evidence, uncertainty, and refresh guidance.
 
 It is designed to answer questions such as:
 
@@ -169,7 +169,7 @@ Because the knowledge directory is ignored, it is not automatically shared with 
 
 ## Limitations
 
-Project Intelligence is an analysis workflow, not a guarantee of exhaustive correctness. Results depend on repository access, available tools, execution time, static-analysis capabilities, test setup, and the parts of the code actually inspected.
+Codeintel is an analysis workflow, not a guarantee of exhaustive correctness. Results depend on repository access, available tools, execution time, static-analysis capabilities, test setup, and the parts of the code actually inspected.
 
 Dynamic dispatch, reflection, generated code, runtime registration, external consumers, and undocumented production behavior may limit certainty. The skill is instructed to record these limitations rather than claim complete coverage.
 
@@ -198,14 +198,6 @@ Dynamic dispatch, reflection, generated code, runtime registration, external con
 ├── CONTRIBUTING.md
 ├── SECURITY.md
 └── LICENSE
-```
-
-### Releasing
-
-```bash
-scripts/validate.sh --bump 1.1.0   # sets the version in every manifest and validates
-# update CHANGELOG.md, commit, then:
-git tag v1.1.0 && git push --follow-tags
 ```
 
 ## Contributing
