@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "repository": {
+    "name": "psf/requests",
+    "analyzed_commit": "0e322af87745eff34caffe4df68456ebc20d9068",
+    "analyzed_branch": "v2.32.3",
+    "working_tree_clean": true,
+    "includes_uncommitted_changes": false
+  },
+  "analysis": {
+    "generated_at": "2026-10-31T09:31:00Z",
+    "mode": "deep_analysis",
+    "status": "complete",
+    "unresolved_items": []
+  },
+  "artifacts": {
+    "INDEX.md": {
+      "depends_on": ["src/requests/__init__.py", "src/requests/api.py"],
+      "status": "current"
+    },
+    "PROJECT_PROFILE.md": {
+      "depends_on": ["setup.py", "pyproject.toml"],
+      "status": "current"
+    },
+    "ARCHITECTURE.md": {
+      "depends_on": ["src/requests/api.py", "src/requests/sessions.py", "src/requests/adapters.py", "src/requests/models.py"],
+      "status": "current"
+    },
+    "DIRECTORY_MAP.md": {
+      "depends_on": ["src/requests/"],
+      "status": "current"
+    },
+    "COMPONENT_CATALOG.md": {
+      "depends_on": ["src/requests/sessions.py", "src/requests/adapters.py", "src/requests/models.py"],
+      "status": "current"
+    },
+    "DEPENDENCY_MAP.md": {
+      "depends_on": ["src/requests/api.py", "src/requests/sessions.py", "src/requests/adapters.py"],
+      "status": "current"
+    },
+    "DATA_FLOW.md": {
+      "depends_on": ["src/requests/api.py", "src/requests/sessions.py", "src/requests/models.py", "src/requests/adapters.py"],
+      "status": "current"
+    },
+    "API_AND_CONTRACTS.md": {
+      "depends_on": ["src/requests/api.py", "src/requests/adapters.py"],
+      "status": "current"
+    },
+    "DESIGN_PRINCIPLES.md": {
+      "depends_on": ["src/requests/adapters.py", "src/requests/auth.py"],
+      "status": "current"
+    },
+    "TEST_STRATEGY.md": {
+      "depends_on": ["tests/conftest.py", "tests/test_requests.py"],
+      "status": "current"
+    },
+    "TEST_COVERAGE_GAPS.md": {
+      "depends_on": ["src/requests/models.py", "src/requests/adapters.py", "src/requests/sessions.py"],
+      "status": "current"
+    },
+    "KNOWN_ISSUES.md": {
+      "depends_on": ["src/requests/models.py", "src/requests/api.py"],
+      "status": "current"
+    },
+    "FEATURE_IMPLEMENTATION_GUIDE.md": {
+      "depends_on": ["src/requests/api.py", "src/requests/sessions.py", "src/requests/adapters.py"],
+      "status": "current"
+    }
+  },
+  "claims": [
+    {
+      "claim_id": "CLM-REQ-001",
+      "statement": "Calling requests.get creates and disposes an ephemeral Session instance",
+      "status": "VERIFIED",
+      "evidence_path": "src/requests/api.py",
+      "evidence_lines": "14-64"
+    },
+    {
+      "claim_id": "CLM-REQ-002",
+      "statement": "HTTPAdapter manages urllib3.PoolManager connection pooling and catches urllib3 exceptions",
+      "status": "VERIFIED",
+      "evidence_path": "src/requests/adapters.py",
+      "evidence_lines": "54-600"
+    },
+    {
+      "claim_id": "CLM-REQ-003",
+      "statement": "SessionRedirectMixin strips sensitive Authorization headers on domain cross-origin redirects",
+      "status": "VERIFIED",
+      "evidence_path": "src/requests/sessions.py",
+      "evidence_lines": "220-300"
+    }
+  ]
+}
