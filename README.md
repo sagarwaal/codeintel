@@ -13,7 +13,7 @@ Later sessions start from that map instead of re-reading the whole repo.
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-8A2BE2)](https://skills.sh/sagarwaal/codeintel/codeintel)
 [![GitHub stars](https://img.shields.io/github/stars/sagarwaal/codeintel?style=social)](https://github.com/sagarwaal/codeintel/stargazers)
 
-Works with **Claude Code** · **OpenAI Codex** · **GitHub Copilot CLI** · **Cursor** · **Gemini CLI** · **Antigravity** · any agent that supports [Agent Skills](https://skills.sh)
+Works with **Claude Code** · **OpenAI Codex** · **GitHub Copilot CLI** · **Cursor** · **Gemini CLI** · **Antigravity** · **Muse** · any agent that supports [Agent Skills](https://skills.sh)
 
 [Quick start](#quick-start) · [See a real example](#see-it-on-a-real-repo) · [Why](#the-problem) · [Install](#installation) · [Usage](#usage) · [FAQ](#faq)
 
@@ -180,6 +180,16 @@ Restart Antigravity after installing. Run the same command again to update.
 gemini extensions install https://github.com/sagarwaal/codeintel
 gemini extensions update codeintel   # later
 ```
+
+### Muse
+
+Muse reads skills from `~/workspace/custom-skills/<skill_name>/`, with the skill's metadata in a `skill.yaml` beside `SKILL.md` (not frontmatter). Copy the skill folder there, then remove the frontmatter block (the lines between the opening `---` and closing `---` at the top of the copied `SKILL.md`):
+
+```bash
+cp -r skills/codeintel/ ~/workspace/custom-skills/codeintel/
+```
+
+A ready-made `skill.yaml` ships in `skills/codeintel/` alongside `SKILL.md`, so a plain copy carries it; other agents ignore the extra file. Restart or refresh Muse after installing.
 
 ### Any agent that supports Agent Skills (skills.sh)
 
