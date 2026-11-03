@@ -1,0 +1,8 @@
+# Descriptor for Muse (Meta's personal AI assistant).
+# Muse skills carry metadata here, not in SKILL.md frontmatter.
+# Keep name and description in sync with the frontmatter in SKILL.md.
+name: "codeintel"
+title: "CodeIntel"
+description: "Deeply analyze a software repository and maintain a local, Git-ignored .codeintel/ knowledge base for architecture understanding, navigation, debugging, test-gap discovery, change-impact analysis, and safe feature implementation."
+category: "Work and knowledge"
+include_in_prompt: false
